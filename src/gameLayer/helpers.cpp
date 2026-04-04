@@ -11,3 +11,4 @@ Rectangle getWoodLogTextureAtlas(int x, int y, int cellSizePixelsX, int cellSize
 	return Rectangle{ (float)x * cellSizePixelsX, (float)y * cellSizePixelsY,
 	(float)cellSizePixelsX, (float)cellSizePixelsY * 2 };
 }
+

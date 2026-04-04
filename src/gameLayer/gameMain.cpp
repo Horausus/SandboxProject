@@ -5,6 +5,8 @@
 #include <gameMap.h>
 #include <helpers.h>
 #include <raymath.h>
+#include <vector>
+#include <queue>
 
 struct GameData
 {
@@ -13,6 +15,10 @@ struct GameData
 }gameData;
 
 AssetManager assetManager;
+
+bool isWoodLogAt(int x, int y);
+std::uint16_t getDynamicTreeBlockToPlace(int x, int y);
+Rectangle getWoodLogAutoTile(int x, int y);
 
 bool initGame()
 {
@@ -38,6 +44,12 @@ bool initGame()
 
 	return true;
 }
+
+struct AutoTileResult
+{
+	Rectangle src;
+	Texture2D* texture;
+};
 
 bool updateGame()
 {
@@ -73,11 +85,9 @@ bool updateGame()
 		auto block = gameData.gameMap.getBlockSafe(blockX, blockY);
 		if (block)
 		{
-			block->type = Block::woodLog;
+			block->type = getDynamicTreeBlockToPlace(blockX, blockY);
 		}
 	}
-
-
 
 #pragma region draw world
 	BeginMode2D(gameData.camera);
@@ -115,82 +125,45 @@ bool updateGame()
 				);
 			}
 
-			Rectangle src = getTextureAtlas(b.type, 0, 32, 32);
-
+			Rectangle src = getWoodLogTextureAtlas(b.type, 0, 32, 16);
 			if (b.type == Block::woodLog)
 			{
-				auto below = gameData.gameMap.getBlockSafe(x, y + 4);
-				auto above = gameData.gameMap.getBlockSafe(x, y - 4);
-				auto left = gameData.gameMap.getBlockSafe(x - 1, y);
-				auto right = gameData.gameMap.getBlockSafe(x + 1, y);
+				DrawTexturePro(
+					assetManager.woodLog,
+					getWoodLogAutoTile(x, y),
+					{ (float)x, (float)y, 1, 1 },
+					{ 0, 0 },
+					0.0f,
+					WHITE
+				);
+			}
+			else if (b.type == Block::leaves)
+			{
+				DrawTexturePro(
+					assetManager.textures,
+					getTextureAtlas(b.type, 0, 32, 32),
+					{ (float)x, (float)y, 1, 1 },
+					{ 0, 0 },
+					0.0f,
+					WHITE
+				);
+			}
+			else
+			{
+				src = getTextureAtlas(b.type, 0, 32, 32);
 
-				if (below && below->type == Block::woodLog)
-				{
-					src = getWoodLogTextureAtlas(/* top/middle variant here */ 5, 0, 32, 16);
-
-					DrawTexturePro(
-						assetManager.woodLog, // or woodLog if separate atlas
-						src,
-						{ (float)x, (float)y, 1, 1 },
-						{ 0, 0 },
-						0.0f,
-						WHITE
-					);
-				}
-				else if (above && above->type == Block::woodLog)
-				{
-					if (src == getWoodlogTextureAtlas())
-					src = getWoodLogTextureAtlas(/* top/middle variant here */ 4, 0, 32, 16);
-
-					DrawTexturePro(
-						assetManager.woodLog, // or woodLog if separate atlas
-						src,
-						{ (float)x, (float)y, 1, 1 },
-						{ 0, 0 },
-						0.0f,
-						WHITE
-					);
-				}
-				else if (left && left->type == Block::woodLog)
-				{
-					src = getTextureAtlas(/* left variant here */ 12, 0, 32, 32);
-
-					DrawTexturePro(
-						assetManager.textures, // or woodLog if separate atlas
-						src,
-						{ (float)x, (float)y, 1, 1 },
-						{ 0, 0 },
-						0.0f,
-						WHITE
-					);
-				}
-				else if (right && right->type == Block::woodLog)
-				{
-					src = getTextureAtlas(/* left variant here */ 12, 0, 32, 32);
-
-					DrawTexturePro(
-						assetManager.textures, // or woodLog if separate atlas
-						src,
-						{ (float)x, (float)y, 1, 1 },
-						{ 0, 0 },
-						0.0f,
-						WHITE
-					);
-				}
-				else
-				{
-					src = getWoodLogTextureAtlas(/* bottom variant here */ 0, 0, 32, 16);
-					DrawTexturePro(
-						assetManager.woodLog, // or woodLog if separate atlas
-						src,
-						{ (float)x, (float)y, 1, 1 },
-						{ 0, 0 },
-						0.0f,
-						WHITE
-					);
-				}
+				DrawTexturePro(
+					assetManager.textures,
+					src,
+					{ (float)x, (float)y, 1, 1 },
+					{ 0, 0 },
+					0.0f,
+					WHITE
+				);
 			}
 		}
+
+		
 
 	// Draw selected block
 	DrawTexturePro(
@@ -214,3 +187,61 @@ void closeGame()
 	// Resets the game state
 	gameData = {};
 }
+
+bool isWoodLogAt(int x, int y)
+{
+	auto block = gameData.gameMap.getBlockSafe(x, y);
+	return block && block->type == Block::woodLog;
+}
+
+bool isLeavesAt(int x, int y)
+{
+	auto block = gameData.gameMap.getBlockSafe(x, y);
+	return block && block->type == Block::leaves;
+}
+
+std::uint16_t getDynamicTreeBlockToPlace(int x, int y)
+{
+	bool woodUp = isWoodLogAt(x, y - 1);
+	bool woodDown = isWoodLogAt(x, y + 1);
+	bool woodLeft = isWoodLogAt(x - 1, y);
+	bool woodRight = isWoodLogAt(x + 1, y);
+
+	bool leafUp = isLeavesAt(x, y - 1);
+	bool leafDown = isLeavesAt(x, y + 1);
+	bool leafLeft = isLeavesAt(x - 1, y);
+	bool leafRight = isLeavesAt(x + 1, y);
+
+	// If we're touching any leaves, keep building canopy
+	if (leafUp || leafDown || leafLeft || leafRight)
+		return Block::leaves;
+
+	// Sideways from trunk = leaves
+	if (woodLeft || woodRight)
+		return Block::leaves;
+
+	// Vertical growth = trunk
+	if (woodUp || woodDown)
+		return Block::woodLog;
+
+	return Block::woodLog;
+}
+
+Rectangle getWoodLogAutoTile(int x, int y)
+{
+	bool up = isWoodLogAt(x, y - 1);
+	bool down = isWoodLogAt(x, y + 1);
+
+	if (!up && down)
+		return getWoodLogTextureAtlas(5, 0, 32, 16);
+
+	if (up && down)
+		return getWoodLogTextureAtlas(0, 0, 32, 16);
+
+	if (up && !down)
+		return getWoodLogTextureAtlas(4, 0, 32, 16);
+
+	return getWoodLogTextureAtlas(7, 0, 32, 16);
+}
+
+

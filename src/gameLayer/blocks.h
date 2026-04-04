@@ -65,4 +65,5 @@ struct Block
 	};
 
 	std::uint16_t type = 0;
+
 };
