@@ -73,13 +73,15 @@ bool updateGame()
 		auto block = gameData.gameMap.getBlockSafe(blockX, blockY);
 		if (block)
 		{
-			block->type = Block::gold;
+			block->type = Block::woodLog;
 		}
 	}
 
+
+
 #pragma region draw world
 	BeginMode2D(gameData.camera);
-
+	
 	Vector2 topLeftView = GetScreenToWorld2D({ 0, 0 }, gameData.camera);
 	Vector2 bottomRightView = GetScreenToWorld2D({ (float)GetScreenWidth(), (float)GetScreenHeight() }, gameData.camera);
 
@@ -93,6 +95,7 @@ bool updateGame()
 
 	startYView = Clamp(startYView, 0, gameData.gameMap.h - 1);
 	endYView = Clamp(endYView, 0, gameData.gameMap.h - 1);
+	
 
 	for (int y = startYView; y <= endYView; y++)
 		for (int x = startXView; x <= endXView; x++)
@@ -110,6 +113,82 @@ bool updateGame()
 					0.0f, //rotation
 					WHITE //tint
 				);
+			}
+
+			Rectangle src = getTextureAtlas(b.type, 0, 32, 32);
+
+			if (b.type == Block::woodLog)
+			{
+				auto below = gameData.gameMap.getBlockSafe(x, y + 4);
+				auto above = gameData.gameMap.getBlockSafe(x, y - 4);
+				auto left = gameData.gameMap.getBlockSafe(x - 1, y);
+				auto right = gameData.gameMap.getBlockSafe(x + 1, y);
+
+				if (below && below->type == Block::woodLog)
+				{
+					src = getWoodLogTextureAtlas(/* top/middle variant here */ 5, 0, 32, 16);
+
+					DrawTexturePro(
+						assetManager.woodLog, // or woodLog if separate atlas
+						src,
+						{ (float)x, (float)y, 1, 1 },
+						{ 0, 0 },
+						0.0f,
+						WHITE
+					);
+				}
+				else if (above && above->type == Block::woodLog)
+				{
+					if (src == getWoodlogTextureAtlas())
+					src = getWoodLogTextureAtlas(/* top/middle variant here */ 4, 0, 32, 16);
+
+					DrawTexturePro(
+						assetManager.woodLog, // or woodLog if separate atlas
+						src,
+						{ (float)x, (float)y, 1, 1 },
+						{ 0, 0 },
+						0.0f,
+						WHITE
+					);
+				}
+				else if (left && left->type == Block::woodLog)
+				{
+					src = getTextureAtlas(/* left variant here */ 12, 0, 32, 32);
+
+					DrawTexturePro(
+						assetManager.textures, // or woodLog if separate atlas
+						src,
+						{ (float)x, (float)y, 1, 1 },
+						{ 0, 0 },
+						0.0f,
+						WHITE
+					);
+				}
+				else if (right && right->type == Block::woodLog)
+				{
+					src = getTextureAtlas(/* left variant here */ 12, 0, 32, 32);
+
+					DrawTexturePro(
+						assetManager.textures, // or woodLog if separate atlas
+						src,
+						{ (float)x, (float)y, 1, 1 },
+						{ 0, 0 },
+						0.0f,
+						WHITE
+					);
+				}
+				else
+				{
+					src = getWoodLogTextureAtlas(/* bottom variant here */ 0, 0, 32, 16);
+					DrawTexturePro(
+						assetManager.woodLog, // or woodLog if separate atlas
+						src,
+						{ (float)x, (float)y, 1, 1 },
+						{ 0, 0 },
+						0.0f,
+						WHITE
+					);
+				}
 			}
 		}
 
