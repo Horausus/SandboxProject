@@ -7,9 +7,12 @@
 #include <raymath.h>
 #include <vector>
 #include <queue>
+#include <worldGenerator.h>
+#include <imgui.h>
 
 struct GameData
 {
+
 	GameMap gameMap;
 	Camera2D camera;
 }gameData;
@@ -20,23 +23,13 @@ bool isWoodLogAt(int x, int y);
 std::uint16_t getDynamicTreeBlockToPlace(int x, int y);
 Rectangle getWoodLogAutoTile(int x, int y);
 
+std::uint16_t selectedBlockType = Block::woodPlank;
+
 bool initGame()
 {
 	assetManager.loadAll();
 
-	gameData.gameMap.create(700, 500);
-
-	for (int i = 0; i < 700; i++)
-		for (int j = 0; j < 500; j++)
-		{
-			gameData.gameMap.getBlockUnsafe(i, j).type = Block::stone;
-		}
-
-	gameData.gameMap.getBlockUnsafe(0, 0).type = Block::dirt;
-	gameData.gameMap.getBlockUnsafe(1, 1).type = Block::grassBlock;
-	gameData.gameMap.getBlockUnsafe(2, 2).type = Block::goldBlock;
-	gameData.gameMap.getBlockUnsafe(3, 3).type = Block::glass;
-	gameData.gameMap.getBlockUnsafe(3, 3).type = Block::furnace;
+	generateWorld(gameData.gameMap);
 
 	gameData.camera.target = { 0, 0 }; // world-space center of view, we will use this as the camera position
 	gameData.camera.rotation = 0.0f;
@@ -61,6 +54,7 @@ bool updateGame()
 	ClearBackground({ 75, 75, 150, 255 });
 
 #pragma region camera movement
+	static float CAMERA_SPEED = 10.f;
 	if (IsKeyDown(KEY_LEFT)) gameData.camera.target.x -= 7.f * deltaTime;
 	if (IsKeyDown(KEY_RIGHT)) gameData.camera.target.x += 7.f * deltaTime;
 	if (IsKeyDown(KEY_UP)) gameData.camera.target.y -= 7.f * deltaTime;
@@ -70,8 +64,15 @@ bool updateGame()
 	Vector2 worldPos = GetScreenToWorld2D(GetMousePosition(), gameData.camera);
 	int blockX = (int)floor(worldPos.x);
 	int blockY = (int)floor(worldPos.y);
-
-	if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+	if (IsKeyDown(KEY_LEFT_SHIFT) && IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+	{
+		auto wall = gameData.gameMap.getWallSafe(blockX, blockY);
+		if (wall)
+		{
+			*wall = 0;
+		}
+	}
+	else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
 	{
 		auto block = gameData.gameMap.getBlockSafe(blockX, blockY);
 		if (block)
@@ -80,14 +81,41 @@ bool updateGame()
 		}
 	}
 
-	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	if (IsKeyDown(KEY_LEFT_SHIFT) && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	{
+		auto wall = gameData.gameMap.getWallSafe(blockX, blockY);
+		if (wall)
+		{
+			*wall = 1; // example wall id
+		}
+	}
+	else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
 	{
 		auto block = gameData.gameMap.getBlockSafe(blockX, blockY);
 		if (block)
 		{
-			block->type = getDynamicTreeBlockToPlace(blockX, blockY);
+			if (selectedBlockType == Block::woodLog)
+			{
+				block->type = getDynamicTreeBlockToPlace(blockX, blockY);
+			}
+			else
+			{
+				block->type = selectedBlockType;
+			}
 		}
 	}
+
+#pragma region block selection
+	if (IsKeyPressed(KEY_F1))
+	{
+		selectedBlockType = Block::woodPlank;
+	}
+	else if (IsKeyPressed(KEY_F2))
+	{
+		selectedBlockType = Block::woodLog;
+	}
+
+#pragma endregion
 
 #pragma region draw world
 	BeginMode2D(gameData.camera);
@@ -110,14 +138,25 @@ bool updateGame()
 	for (int y = startYView; y <= endYView; y++)
 		for (int x = startXView; x <= endXView; x++)
 		{
+			auto& tile = gameData.gameMap.getTileUnsafe(x, y);
 
-			auto& b = gameData.gameMap.getBlockUnsafe(x, y);
+			if (tile.wall != 0)
+			{
+				DrawTexturePro(
+					assetManager.backGroundWall,
+					getWallTextureAtlas(tile.wall),
+					{ (float)x, (float)y, 1, 1 },
+					{ 0, 0 },
+					0.0f,
+					WHITE
+				);
+			}
 
-			if (b.type != Block::air)
+			if (tile.block.type != Block::air)
 			{
 				DrawTexturePro(
 					assetManager.textures,
-					getTextureAtlas(b.type, 0, 32, 32), //source
+					getTextureAtlas(tile.block.type, 0, 32, 32), //source
 					{ (float)x, (float)y, 1, 1}, //dest
 					{ 0, 0 }, //origin (top-left corner)
 					0.0f, //rotation
@@ -125,8 +164,8 @@ bool updateGame()
 				);
 			}
 
-			Rectangle src = getWoodLogTextureAtlas(b.type, 0, 32, 16);
-			if (b.type == Block::woodLog)
+			Rectangle src = getWoodLogTextureAtlas(tile.block.type, 0, 32, 16);
+			if (tile.block.type == Block::woodLog)
 			{
 				DrawTexturePro(
 					assetManager.woodLog,
@@ -137,11 +176,11 @@ bool updateGame()
 					WHITE
 				);
 			}
-			else if (b.type == Block::leaves)
+			else if (tile.block.type == Block::leaves)
 			{
 				DrawTexturePro(
 					assetManager.textures,
-					getTextureAtlas(b.type, 0, 32, 32),
+					getTextureAtlas(tile.block.type, 0, 32, 32),
 					{ (float)x, (float)y, 1, 1 },
 					{ 0, 0 },
 					0.0f,
@@ -150,7 +189,7 @@ bool updateGame()
 			}
 			else
 			{
-				src = getTextureAtlas(b.type, 0, 32, 32);
+				src = getTextureAtlas(tile.block.type, 0, 32, 32);
 
 				DrawTexturePro(
 					assetManager.textures,
@@ -178,7 +217,15 @@ bool updateGame()
 	EndMode2D();
 #pragma endregion
 
+	ImGui::Begin("Game control");
+
+	ImGui::SliderFloat("Camera zoom", &gameData.camera.zoom, 10, 150);
+	ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 5, 30);
+
+	ImGui::End();
+
 	DrawFPS(10, 10);
+	DrawText(TextFormat("Selected block: %d", selectedBlockType), 10, 30, 20, WHITE);
 	return true;
 }
 
