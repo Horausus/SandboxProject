@@ -31,7 +31,7 @@ bool initGame()
 
 	generateWorld(gameData.gameMap);
 
-	gameData.camera.target = { 0, 0 }; // world-space center of view, we will use this as the camera position
+	gameData.camera.target = { 20, 120 }; // world-space center of view
 	gameData.camera.rotation = 0.0f;
 	gameData.camera.zoom = 100.0f;
 
@@ -54,11 +54,11 @@ bool updateGame()
 	ClearBackground({ 75, 75, 150, 255 });
 
 #pragma region camera movement
-	static float CAMERA_SPEED = 10.f;
-	if (IsKeyDown(KEY_LEFT)) gameData.camera.target.x -= 7.f * deltaTime;
-	if (IsKeyDown(KEY_RIGHT)) gameData.camera.target.x += 7.f * deltaTime;
-	if (IsKeyDown(KEY_UP)) gameData.camera.target.y -= 7.f * deltaTime;
-	if (IsKeyDown(KEY_DOWN)) gameData.camera.target.y += 7.f * deltaTime;
+	static float CAMERA_SPEED = 30.f;
+	if (IsKeyDown(KEY_LEFT)) gameData.camera.target.x -= CAMERA_SPEED * deltaTime;
+	if (IsKeyDown(KEY_RIGHT)) gameData.camera.target.x += CAMERA_SPEED * deltaTime;
+	if (IsKeyDown(KEY_UP)) gameData.camera.target.y -= CAMERA_SPEED * deltaTime;
+	if (IsKeyDown(KEY_DOWN)) gameData.camera.target.y += CAMERA_SPEED * deltaTime;
 #pragma endregion
 
 	Vector2 worldPos = GetScreenToWorld2D(GetMousePosition(), gameData.camera);
@@ -219,8 +219,8 @@ bool updateGame()
 
 	ImGui::Begin("Game control");
 
-	ImGui::SliderFloat("Camera zoom", &gameData.camera.zoom, 10, 150);
-	ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 5, 30);
+	ImGui::SliderFloat("Camera zoom", &gameData.camera.zoom, 1, 150);
+	ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 5, 80);
 
 	ImGui::End();
 
